@@ -7,7 +7,7 @@ const connectDB = require("./config/db");
 
 const productRoutes = require("./routes/productRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
-const uploadRoutes = require("./routes/uploadRoutes"); // 👈 NEW
+const uploadRoutes = require("./routes/uploadRoutes");
 
 dotenv.config();
 connectDB();
@@ -16,9 +16,27 @@ const app = express();
 
 app.use(express.json());
 
+// CORS: allow local dev + deployed Vercel frontend
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:8080",
+  "https://ecommerce-frontend-fawn-ten-54.vercel.app",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:8080", // adjust if needed
+    origin(origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.warn("Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
@@ -32,7 +50,20 @@ app.get("/", (req, res) => {
 
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use("/api/upload", uploadRoutes); // 👈 NEW
+app.use("/api/upload", uploadRoutes);
+
+// Optional: 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: "Not Found" });
+});
+
+// Optional: error handler (helps see CORS errors etc.)
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res
+    .status(err.status || 500)
+    .json({ message: err.message || "Server error" });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
